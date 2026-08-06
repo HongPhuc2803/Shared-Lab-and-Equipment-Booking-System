@@ -9,7 +9,10 @@ const USER_KEY = 'auth.user'
 export const useAuthStore = defineStore('auth', () => {
   // Rehydrate identity from storage (tokens live in tokenStorage).
   const stored = localStorage.getItem(USER_KEY)
-  const user = ref<AuthUser | null>(stored ? JSON.parse(stored) : null)
+  const parsed = stored ? (JSON.parse(stored) as AuthUser) : null
+  // Accounts persisted by the original starter did not include a role.
+  if (parsed && !parsed.role) parsed.role = 'Requester'
+  const user = ref<AuthUser | null>(parsed)
   const status = ref<'idle' | 'loading' | 'error'>('idle')
   const error = ref<string | null>(null)
 

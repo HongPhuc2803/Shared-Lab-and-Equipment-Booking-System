@@ -16,7 +16,17 @@ export const authApi = {
     return {
       accessToken: 'mock-access-token',
       refreshToken: 'mock-refresh-token',
-      user: { id: 1, name: 'Demo User', email: payload.email },
+      user: {
+        id: 1,
+        name:
+          payload.role === 'Admin'
+            ? 'Quản trị viên'
+            : payload.role === 'LabManager'
+              ? 'Trần Thị B'
+              : 'Nguyễn Văn An',
+        email: payload.email,
+        role: payload.role ?? 'Requester',
+      },
     }
   },
 }
