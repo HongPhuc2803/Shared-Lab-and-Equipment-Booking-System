@@ -1,37 +1,80 @@
-import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { tokenStorage } from '@/lib/api/token-storage'
+import { defineStore } from 'pinia'
 import { authApi } from '@/features/auth/auth.api'
-import type { AuthUser, LoginPayload } from '@/features/auth/auth.types'
+import type { AuthUser, LoginPayload, RegisterPayload } from '@/features/auth/auth.types'
+import { ApiError } from '@/lib/api/http'
+import { tokenStorage } from '@/lib/api/token-storage'
 
 const USER_KEY = 'auth.user'
 
+function readStoredUser(): AuthUser | null {
+  try {
+    const value = localStorage.getItem(USER_KEY)
+    return value ? (JSON.parse(value) as AuthUser) : null
+  } catch {
+    localStorage.removeItem(USER_KEY)
+    return null
+  }
+}
+
 export const useAuthStore = defineStore('auth', () => {
-  // Rehydrate identity from storage (tokens live in tokenStorage).
-  const stored = localStorage.getItem(USER_KEY)
-  const user = ref<AuthUser | null>(stored ? JSON.parse(stored) : null)
+  const user = ref<AuthUser | null>(readStoredUser())
   const status = ref<'idle' | 'loading' | 'error'>('idle')
   const error = ref<string | null>(null)
-
-  const isAuthenticated = computed(() => user.value !== null)
+  const isAuthenticated = computed(
+    () => user.value !== null && Boolean(tokenStorage.getAccess() || tokenStorage.getRefresh()),
+  )
 
   async function login(payload: LoginPayload) {
     status.value = 'loading'
     error.value = null
     try {
-      const res = await authApi.login(payload)
-      tokenStorage.set(res.accessToken, res.refreshToken)
-      user.value = res.user
-      localStorage.setItem(USER_KEY, JSON.stringify(res.user))
+      const session = await authApi.login(payload)
+      tokenStorage.set(session.accessToken, session.refreshToken)
+      user.value = session.user
+      localStorage.setItem(USER_KEY, JSON.stringify(session.user))
       status.value = 'idle'
-    } catch (e) {
+      return session.user
+    } catch (exception) {
       status.value = 'error'
-      error.value = e instanceof Error ? e.message : 'error'
-      throw e
+      error.value =
+        exception instanceof ApiError && exception.status === 401
+          ? 'Tài khoản hoặc mật khẩu không chính xác.'
+          : exception instanceof Error
+            ? exception.message
+            : 'Đăng nhập thất bại.'
+      throw exception
     }
   }
 
-  function logout() {
+  async function register(payload: RegisterPayload) {
+    status.value = 'loading'
+    error.value = null
+    try {
+      const registeredUser = await authApi.register(payload)
+      status.value = 'idle'
+      return registeredUser
+    } catch (exception) {
+      status.value = 'error'
+      error.value = exception instanceof Error ? exception.message : 'Đăng ký thất bại.'
+      throw exception
+    }
+  }
+
+  async function logout() {
+    const refreshToken = tokenStorage.getRefresh()
+    try {
+      if (refreshToken && tokenStorage.getAccess()) await authApi.logout(refreshToken)
+    } finally {
+      tokenStorage.clear()
+      localStorage.removeItem(USER_KEY)
+      user.value = null
+      status.value = 'idle'
+      error.value = null
+    }
+  }
+
+  function clearSession() {
     tokenStorage.clear()
     localStorage.removeItem(USER_KEY)
     user.value = null
@@ -39,5 +82,5 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
   }
 
-  return { user, status, error, isAuthenticated, login, logout }
+  return { user, status, error, isAuthenticated, login, register, logout, clearSession }
 })

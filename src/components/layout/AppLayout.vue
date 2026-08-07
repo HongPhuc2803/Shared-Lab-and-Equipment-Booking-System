@@ -1,66 +1,100 @@
 <script setup lang="ts">
-import { RouterLink, RouterView, useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
+import { computed, ref } from 'vue'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { supportedLocales, setLocale } from '@/lib/i18n'
-import BaseButton from '@/components/ui/BaseButton.vue'
 
-const { t, locale } = useI18n()
-const router = useRouter()
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
+const mobileOpen = ref(false)
 
-function onLocaleChange(e: Event) {
-  setLocale((e.target as HTMLSelectElement).value)
-}
+const requesterNav = [
+  ['Tổng quan', '/resources', 'home'],
+  ['Danh mục', '/resources', 'grid'],
+  ['Đặt lịch của tôi', '/my-bookings', 'calendar'],
+  ['Hàng đợi', '/my-bookings?tab=waitlist', 'clock'],
+  ['Thông báo', '/notifications', 'bell'],
+]
+const managerNav = [
+  ['Chờ duyệt', '/manager/approvals', 'check'],
+  ['Lịch bảo trì', '/manager/maintenance', 'tool'],
+  ['Vi phạm', '/manager/violations', 'shield'],
+  ['Danh mục', '/resources', 'grid'],
+]
+const adminNav = [
+  ['Dashboard', '/admin/dashboard', 'chart'],
+  ['Danh mục', '/admin/resources', 'grid'],
+  ['Quy tắc ưu tiên', '/admin/settings', 'settings'],
+  ['Vi phạm', '/manager/violations', 'shield'],
+  ['Báo cáo', '/admin/dashboard#reports', 'file'],
+]
+const nav = computed(() =>
+  auth.user?.role === 'Admin'
+    ? adminNav
+    : auth.user?.role === 'LabManager'
+      ? managerNav
+      : requesterNav,
+)
+const roleName = computed(() =>
+  auth.user?.role === 'Admin'
+    ? 'Quản trị viên'
+    : auth.user?.role === 'LabManager'
+      ? 'Lab Manager'
+      : 'Requester',
+)
+const title = computed(() => String(route.meta.title ?? 'LabSpace'))
 
-function logout() {
-  auth.logout()
-  router.push('/login')
+async function logout() {
+  await auth.logout()
+  await router.push('/login')
 }
 </script>
 
 <template>
-  <div class="mx-auto flex min-h-full max-w-5xl flex-col">
-    <header
-      class="flex items-center justify-between gap-4 border-b border-gray-200 px-4 py-3 dark:border-gray-800"
-    >
-      <div class="flex items-center gap-6">
-        <span class="text-brand-600 text-lg font-bold">{{ t('app.name') }}</span>
-        <nav class="flex items-center gap-1">
-          <RouterLink
-            to="/"
-            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-            active-class="!bg-brand-50 !text-brand-700 dark:!bg-brand-500/10"
-            >{{ t('nav.home') }}</RouterLink
-          >
-          <RouterLink
-            to="/users"
-            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-            active-class="!bg-brand-50 !text-brand-700 dark:!bg-brand-500/10"
-            >{{ t('nav.users') }}</RouterLink
-          >
-        </nav>
+  <div class="app-shell">
+    <aside class="sidebar" :class="{ open: mobileOpen }">
+      <div class="brand">
+        <span class="brand-mark">LS</span>
+        <div><strong>LabSpace</strong><small>Quản lý phòng thí nghiệm</small></div>
       </div>
-      <div class="flex items-center gap-3">
-        <select
-          aria-label="Language"
-          :value="locale"
-          class="h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-900"
-          @change="onLocaleChange"
-        >
-          <option v-for="l in supportedLocales" :key="l" :value="l">
-            {{ l.toUpperCase() }}
-          </option>
-        </select>
-        <span v-if="auth.user" class="text-sm text-gray-500">{{ auth.user.name }}</span>
-        <BaseButton variant="ghost" size="sm" @click="logout">
-          {{ t('nav.logout') }}
-        </BaseButton>
+      <nav class="side-nav">
+        <RouterLink v-for="item in nav" :key="item[1]" :to="item[1]" @click="mobileOpen = false">
+          <span class="nav-icon" :data-icon="item[2]"></span><span>{{ item[0] }}</span>
+          <span v-if="item[1] === '/manager/approvals'" class="count">5</span>
+        </RouterLink>
+      </nav>
+      <div class="sidebar-help">
+        <strong>Cần hỗ trợ?</strong><span>Liên hệ quản trị hệ thống</span
+        ><a href="mailto:lab@fpt.edu.vn">lab@fpt.edu.vn</a>
       </div>
-    </header>
-
-    <main class="flex-1 p-4">
-      <RouterView />
-    </main>
+    </aside>
+    <div v-if="mobileOpen" class="backdrop" @click="mobileOpen = false"></div>
+    <section class="workspace">
+      <header class="topbar">
+        <button class="icon-button mobile-menu" aria-label="Mở menu" @click="mobileOpen = true">
+          ☰
+        </button>
+        <div class="page-heading">
+          <h1>{{ title }}</h1>
+          <p>{{ route.meta.subtitle }}</p>
+        </div>
+        <div class="top-actions">
+          <button class="icon-button" title="Thông báo" aria-label="Thông báo">
+            <span class="nav-icon" data-icon="bell"></span><i></i>
+          </button>
+          <div class="user-block">
+            <span class="avatar">{{ auth.user?.fullName?.split(' ').slice(-1)[0]?.[0] }}</span>
+            <div>
+              <strong>{{ auth.user?.fullName }}</strong
+              ><small>{{ roleName }}</small>
+            </div>
+          </div>
+          <button class="icon-button" title="Đăng xuất" aria-label="Đăng xuất" @click="logout">
+            ↪
+          </button>
+        </div>
+      </header>
+      <main class="content"><RouterView /></main>
+    </section>
   </div>
 </template>
