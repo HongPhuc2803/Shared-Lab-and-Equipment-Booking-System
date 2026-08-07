@@ -1,32 +1,23 @@
-import type { LoginPayload, LoginResponse } from './auth.types'
+import { http, unwrapApiResponse, type ApiResponse } from '@/lib/api/http'
+import type {
+  LoginPayload,
+  LoginResponse,
+  RegisterPayload,
+  RegisterResponse,
+} from './auth.types'
 
-/**
- * Auth API. Ships a MOCK so the starter runs with no backend. Swap for:
- *   import { http } from '@/lib/api/http'
- *   login: (p) => http.post<LoginResponse>('/auth/login', p).then((r) => r.data)
- */
 export const authApi = {
   async login(payload: LoginPayload): Promise<LoginResponse> {
-    await new Promise((r) => setTimeout(r, 500))
-    if (payload.password !== 'password') {
-      const err = new Error('invalidCredentials')
-      err.name = 'InvalidCredentials'
-      throw err
-    }
-    return {
-      accessToken: 'mock-access-token',
-      refreshToken: 'mock-refresh-token',
-      user: {
-        id: 1,
-        name:
-          payload.role === 'Admin'
-            ? 'Quản trị viên'
-            : payload.role === 'LabManager'
-              ? 'Trần Thị B'
-              : 'Nguyễn Văn An',
-        email: payload.email,
-        role: payload.role ?? 'Requester',
-      },
-    }
+    const { data } = await http.post<ApiResponse<LoginResponse>>('/auth/login', payload)
+    return unwrapApiResponse(data)
+  },
+
+  async register(payload: RegisterPayload): Promise<RegisterResponse> {
+    const { data } = await http.post<ApiResponse<RegisterResponse>>('/auth/register', payload)
+    return unwrapApiResponse(data)
+  },
+
+  async logout(refreshToken: string): Promise<void> {
+    await http.post<ApiResponse<null>>('/auth/logout', { refreshToken })
   },
 }

@@ -1,18 +1,32 @@
+export type UserRole = 'Requester' | 'LabManager' | 'Admin'
+
 export interface AuthUser {
-  id: number
-  name: string
+  id: string
+  fullName: string
   email: string
-  role: 'Requester' | 'LabManager' | 'Admin'
+  role: UserRole
 }
 
 export interface LoginPayload {
   email: string
   password: string
-  role?: 'Requester' | 'LabManager' | 'Admin'
+}
+
+export interface RegisterPayload {
+  fullName: string
+  email: string
+  password: string
+  departmentId?: string
 }
 
 export interface LoginResponse {
   accessToken: string
-  refreshToken?: string
+  refreshToken: string
+  expiresIn: number
   user: AuthUser
+}
+
+export interface RegisterResponse extends AuthUser {
+  status: string
+  createdAt: string
 }

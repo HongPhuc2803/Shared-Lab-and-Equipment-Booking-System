@@ -1,11 +1,27 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
 const router = useRouter()
+const auth = useAuthStore()
 const done = ref(false)
-function submit() {
-  done.value = true
-  setTimeout(() => router.push('/login'), 900)
+const fullName = ref('')
+const email = ref('')
+const password = ref('')
+const departmentId = ref('')
+
+async function submit() {
+  try {
+    await auth.register({
+      fullName: fullName.value.trim(),
+      email: email.value.trim(),
+      password: password.value,
+      ...(departmentId.value.trim() && { departmentId: departmentId.value.trim() }),
+    })
+    done.value = true
+    setTimeout(() => router.push('/login'), 900)
+  } catch {}
 }
 </script>
 <template>
@@ -19,34 +35,20 @@ function submit() {
       </div>
       <div class="form-grid">
         <div class="field">
-          <label>Họ và tên</label><input class="input" required placeholder="Nguyễn Văn An" />
-        </div>
-        <div class="field">
-          <label>Mã số sinh viên / cán bộ</label
-          ><input class="input" required placeholder="SE180001" />
+          <label>Họ và tên</label
+          ><input v-model="fullName" class="input" required placeholder="Nguyễn Văn An" />
         </div>
         <div class="field span-2">
           <label>Email trường</label
-          ><input class="input" required type="email" placeholder="ten@fpt.edu.vn" />
+          ><input v-model="email" class="input" required type="email" placeholder="ten@fpt.edu.vn" autocomplete="off" />
         </div>
         <div class="field">
-          <label>Khoa / Bộ môn</label
-          ><select class="select">
-            <option>Khoa Công nghệ thông tin</option>
-            <option>Khoa Điện - Điện tử</option>
-            <option>Khoa Cơ khí</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Vai trò</label
-          ><select class="select">
-            <option>Sinh viên</option>
-            <option>Giảng viên</option>
-            <option>Nghiên cứu sinh</option>
-          </select>
+          <label>ID Khoa / Bộ môn (không bắt buộc)</label
+          ><input v-model="departmentId" class="input" placeholder="UUID do hệ thống cung cấp" />
         </div>
         <div class="field span-2">
-          <label>Mật khẩu</label><input class="input" required type="password" minlength="6" />
+          <label>Mật khẩu</label
+          ><input v-model="password" class="input" required type="password" minlength="6" autocomplete="new-password" />
         </div>
       </div>
       <label class="terms"
@@ -55,7 +57,10 @@ function submit() {
       <div v-if="done" class="notice notice-success">
         Đăng ký thành công. Đang chuyển đến trang đăng nhập...
       </div>
-      <button class="btn btn-primary">Đăng ký tài khoản</button>
+      <div v-else-if="auth.error" class="notice notice-danger" role="alert">{{ auth.error }}</div>
+      <button class="btn btn-primary" :disabled="auth.status === 'loading'">
+        {{ auth.status === 'loading' ? 'Đang đăng ký...' : 'Đăng ký tài khoản' }}
+      </button>
     </form>
   </main>
 </template>
