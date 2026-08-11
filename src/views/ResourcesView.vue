@@ -1,75 +1,137 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { resources, statusLabel } from '@/data/mock'
-const search = ref(''),
-  type = ref('Tất cả'),
-  dept = ref('Tất cả'),
-  status = ref('Tất cả')
-const departments = [...new Set(resources.map((r) => r.department))]
+import { computed, onMounted, ref } from 'vue'
+import { resourcesApi } from '@/features/resources/resources.api'
+import type { Resource } from '@/features/resources/resources.types'
+
+const search = ref('')
+const type = ref('Tất cả')
+const dept = ref('Tất cả')
+const status = ref('Tất cả')
+
+const resources = ref<Resource[]>([])
+
+const departments = computed(() => [
+  ...new Set(resources.value.map((r) => r.departmentName)),
+])
+
 const filtered = computed(() =>
-  resources.filter(
+  resources.value.filter(
     (r) =>
-      (!search.value || `${r.name} ${r.code}`.toLowerCase().includes(search.value.toLowerCase())) &&
+      (!search.value ||
+        r.name.toLowerCase().includes(search.value.toLowerCase())) &&
       (type.value === 'Tất cả' || r.type === type.value) &&
-      (dept.value === 'Tất cả' || r.department === dept.value) &&
+      (dept.value === 'Tất cả' || r.departmentName === dept.value) &&
       (status.value === 'Tất cả' || r.status === status.value),
   ),
 )
+
+onMounted(async () => {
+  try {
+    const data = await resourcesApi.list()
+    resources.value = data.items
+    console.log('RESOURCE API RESULT:', data)
+  } catch (error) {
+    console.error('RESOURCE API ERROR:', error)
+  }
+})
 </script>
+
 <template>
   <div>
     <div class="toolbar">
       <input
         v-model="search"
         class="input search"
-        placeholder="Tìm theo tên hoặc mã tài nguyên..."
-      /><select v-model="type" class="select">
+        placeholder="Tìm theo tên tài nguyên..."
+      />
+
+      <select v-model="type" class="select">
         <option>Tất cả</option>
-        <option>Phòng lab</option>
-        <option>Thiết bị</option></select
-      ><select v-model="dept" class="select">
+        <option value="Room">Phòng lab</option>
+        <option value="Equipment">Thiết bị</option>
+      </select>
+
+      <select v-model="dept" class="select">
         <option>Tất cả</option>
-        <option v-for="d in departments" :key="d">{{ d }}</option></select
-      ><select v-model="status" class="select">
+        <option v-for="d in departments" :key="d">
+          {{ d }}
+        </option>
+      </select>
+
+      <select v-model="status" class="select">
         <option>Tất cả</option>
-        <option value="available">Sẵn sàng</option>
-        <option value="maintenance">Bảo trì</option>
-        <option value="inactive">Ngừng sử dụng</option>
+        <option value="Available">Sẵn sàng</option>
+        <option value="Maintenance">Bảo trì</option>
+        <option value="Inactive">Ngừng sử dụng</option>
       </select>
     </div>
+
     <div class="resource-grid">
-      <article v-for="r in filtered" :key="r.id" class="resource-card">
-        <RouterLink :to="`/resources/${r.id}`"
-          ><img class="resource-image" :src="r.image" :alt="r.name" />
+      <article
+        v-for="r in filtered"
+        :key="r.id"
+        class="resource-card"
+      >
+        <RouterLink :to="`/resources/${r.id}`">
+          <img
+            v-if="r.imageUrl"
+            class="resource-image"
+            :src="r.imageUrl"
+            :alt="r.name"
+          />
+
           <div class="resource-card-body">
             <div class="resource-meta">
-              <span class="resource-code">{{ r.type }} · {{ r.code }}</span
-              ><span
+              <span class="resource-code">
+                {{ r.type }}
+              </span>
+
+              <span
                 class="badge"
                 :class="
-                  r.status === 'available'
+                  r.status === 'Available'
                     ? 'badge-green'
-                    : r.status === 'maintenance'
+                    : r.status === 'Maintenance'
                       ? 'badge-red'
                       : 'badge-gray'
                 "
-                >{{ statusLabel[r.status] }}</span
               >
+                {{
+                  r.status === 'Available'
+                    ? 'Sẵn sàng'
+                    : r.status === 'Maintenance'
+                      ? 'Bảo trì'
+                      : 'Ngừng sử dụng'
+                }}
+              </span>
             </div>
+
             <h3>{{ r.name }}</h3>
-            <p class="muted">{{ r.department }}</p>
+
+            <p class="muted">
+              {{ r.departmentName }}
+            </p>
+
             <div class="resource-footer">
-              <span class="muted">⌖ {{ r.location }}</span
-              ><RouterLink class="btn btn-sm" :to="`/resources/${r.id}/calendar`"
-                >Xem lịch →</RouterLink
+              <span class="muted">
+                Quản lý: {{ r.labManagerName }}
+              </span>
+
+              <RouterLink
+                class="btn btn-sm"
+                :to="`/resources/${r.id}/calendar`"
               >
+                Xem lịch →
+              </RouterLink>
             </div>
-          </div></RouterLink
-        >
+          </div>
+        </RouterLink>
       </article>
     </div>
+
     <div v-if="!filtered.length" class="panel empty">
-      <strong>Không tìm thấy tài nguyên</strong>Thử thay đổi từ khóa hoặc bộ lọc.
+      <strong>Không tìm thấy tài nguyên</strong>
+      Thử thay đổi từ khóa hoặc bộ lọc.
     </div>
   </div>
 </template>

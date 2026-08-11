@@ -3,19 +3,16 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { roleHome } from '@/router'
-import type { Role } from '@/data/mock'
 
 const auth = useAuthStore(),
   router = useRouter(),
   route = useRoute()
-const email = ref('sinhvien@fpt.edu.vn'),
-  password = ref('password'),
-  remember = ref(true),
-  role = ref<Role>('Requester')
+const email = ref('')
+const password = ref('')
 async function submit() {
   try {
-    await auth.login({ email: email.value, password: password.value, role: role.value })
-    router.replace((route.query.redirect as string) || roleHome(role.value))
+    const user = await auth.login({ email: email.value.trim(), password: password.value })
+    router.replace((route.query.redirect as string) || roleHome(user.role))
   } catch {}
 }
 </script>
@@ -31,30 +28,37 @@ async function submit() {
       <small>© 2026 LabSpace · Trường Đại học FPT</small>
     </section>
     <section class="auth-form-wrap">
-      <form class="auth-form" @submit.prevent="submit">
+      <form class="auth-form" autocomplete="off" @submit.prevent="submit">
         <div>
           <h2>Đăng nhập hệ thống</h2>
           <p>Sử dụng tài khoản trường để tiếp tục</p>
         </div>
         <div class="field">
-          <label>Email</label><input v-model="email" class="input" type="email" required />
+          <label>Email</label
+          ><input
+            v-model="email"
+            class="input"
+            type="email"
+            name="login-email-field"
+            autocomplete="off"
+            required
+          />
         </div>
         <div class="field">
-          <label>Mật khẩu</label><input v-model="password" class="input" type="password" required />
-        </div>
-        <div class="field">
-          <label>Trải nghiệm vai trò</label
-          ><select v-model="role" class="select">
-            <option value="Requester">Người đặt lịch</option>
-            <option value="LabManager">Quản lý phòng lab</option>
-            <option value="Admin">Quản trị viên</option>
-          </select>
+          <label>Mật khẩu</label
+          ><input
+            v-model="password"
+            class="input"
+            type="password"
+            name="login-password-field"
+            autocomplete="new-password"
+            required
+          />
         </div>
         <div class="auth-options">
-          <label><input v-model="remember" type="checkbox" /> Ghi nhớ đăng nhập</label
-          ><a href="#">Quên mật khẩu?</a>
+          <span></span><span>Quên mật khẩu? Liên hệ quản trị viên.</span>
         </div>
-        <p v-if="auth.error" class="notice notice-danger">Email hoặc mật khẩu không chính xác.</p>
+        <p v-if="auth.error" class="notice notice-danger" role="alert">{{ auth.error }}</p>
         <button class="btn btn-primary auth-submit" :disabled="auth.status === 'loading'">
           {{ auth.status === 'loading' ? 'Đang đăng nhập...' : 'Đăng nhập' }}
         </button>

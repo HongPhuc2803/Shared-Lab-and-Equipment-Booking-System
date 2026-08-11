@@ -44,9 +44,9 @@ const roleName = computed(() =>
 )
 const title = computed(() => String(route.meta.title ?? 'LabSpace'))
 
-function logout() {
-  auth.logout()
-  router.push('/login')
+async function logout() {
+  await auth.logout()
+  await router.push('/login')
 }
 </script>
 
@@ -83,9 +83,9 @@ function logout() {
             <span class="nav-icon" data-icon="bell"></span><i></i>
           </button>
           <div class="user-block">
-            <span class="avatar">{{ auth.user?.name?.split(' ').slice(-1)[0]?.[0] }}</span>
+            <span class="avatar">{{ auth.user?.fullName?.split(' ').slice(-1)[0]?.[0] }}</span>
             <div>
-              <strong>{{ auth.user?.name }}</strong
+              <strong>{{ auth.user?.fullName }}</strong
               ><small>{{ roleName }}</small>
             </div>
           </div>

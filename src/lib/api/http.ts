@@ -1,26 +1,32 @@
 import axios, { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
 import { env } from '@/config/env'
+import type { LoginResponse } from '@/features/auth/auth.types'
 import { tokenStorage } from './token-storage'
 
-export interface ApiErrorBody {
-  message: string
-  code?: string
-  errors?: Record<string, string[]>
+export interface ApiResponse<T> {
+  statusCode: number
+  isSuccess: boolean
+  errorMessages: string[]
+  result: T | null
 }
 
-/** Normalized error the UI/stores can rely on — never a raw AxiosError. */
 export class ApiError extends Error {
   readonly status: number
-  readonly code?: string
-  readonly fieldErrors?: Record<string, string[]>
+  readonly messages: string[]
 
-  constructor(status: number, body?: ApiErrorBody) {
-    super(body?.message ?? `Request failed with status ${status}`)
+  constructor(status: number, messages: string[] = []) {
+    super(messages[0] ?? `Yêu cầu thất bại (${status || 'không thể kết nối máy chủ'}).`)
     this.name = 'ApiError'
     this.status = status
-    this.code = body?.code
-    this.fieldErrors = body?.errors
+    this.messages = messages
   }
+}
+
+export function unwrapApiResponse<T>(response: ApiResponse<T>): T {
+  if (!response.isSuccess || response.result === null) {
+    throw new ApiError(response.statusCode, response.errorMessages)
+  }
+  return response.result
 }
 
 export const http: AxiosInstance = axios.create({
@@ -29,37 +35,38 @@ export const http: AxiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Request: attach bearer token.
 http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = tokenStorage.getAccess()
   if (token) config.headers.set('Authorization', `Bearer ${token}`)
   return config
 })
 
-// Response: transparent refresh on 401 (deduped), then normalize errors.
 let refreshing: Promise<void> | null = null
 
 async function refreshSession(): Promise<void> {
-  const refresh = tokenStorage.getRefresh()
-  if (!refresh) throw new Error('No refresh token')
-  const { data } = await axios.post<{ accessToken: string; refreshToken?: string }>(
+  const refreshToken = tokenStorage.getRefresh()
+  if (!refreshToken) throw new Error('No refresh token')
+
+  const { data } = await axios.post<ApiResponse<LoginResponse>>(
     `${env.apiBaseUrl}/auth/refresh`,
-    { refreshToken: refresh },
+    { refreshToken },
+    { timeout: 15_000 },
   )
-  tokenStorage.set(data.accessToken, data.refreshToken)
+  const session = unwrapApiResponse(data)
+  tokenStorage.set(session.accessToken, session.refreshToken)
 }
 
 http.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError<ApiErrorBody>) => {
-    const original = error.config as InternalAxiosRequestConfig & {
-      _retried?: boolean
-    }
+  async (error: AxiosError<ApiResponse<unknown>>) => {
+    const original = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined
+    const isAuthRequest = original?.url?.startsWith('/auth/') ?? false
 
     if (
       error.response?.status === 401 &&
       original &&
       !original._retried &&
+      !isAuthRequest &&
       tokenStorage.getRefresh()
     ) {
       original._retried = true
@@ -73,6 +80,10 @@ http.interceptors.response.use(
       }
     }
 
-    throw new ApiError(error.response?.status ?? 0, error.response?.data)
+    const body = error.response?.data
+    throw new ApiError(
+      error.response?.status ?? 0,
+      body?.errorMessages ?? [error.message || 'Không thể kết nối đến máy chủ.'],
+    )
   },
 )
