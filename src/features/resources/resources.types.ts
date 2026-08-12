@@ -9,10 +9,10 @@ export interface Resource {
   specifications: string | null
   imageUrl: string | null
   usageRules: string | null
-  departmentId: string
-  departmentName: string
-  labManagerId: string
-  labManagerName: string
+  departmentId: string | null
+  departmentName: string | null
+  labManagerId: string | null
+  labManagerName: string | null
   status: ResourceStatus
   createdAt: string
 }
@@ -34,4 +34,25 @@ export interface ResourceQuery {
   departmentId?: string
   status?: number
   keyword?: string
+}
+
+export interface CreateResourceInput {
+  name: string
+  type: number
+  specifications?: string | null
+  imageUrl?: string | null
+  usageRules?: string | null
+  departmentId?: string | null
+  labManagerId?: string | null
+}
+
+export interface UpdateResourceInput {
+  name: string
+  type: number
+  specifications?: string | null
+  imageUrl?: string | null
+  usageRules?: string | null
+  departmentId?: string | null
+  labManagerId?: string | null
+  status: number
 }
