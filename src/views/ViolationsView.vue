@@ -1,106 +1,188 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { violations } from '@/data/mock'
-const rows = ref(violations.map((v) => ({ ...v }))),
-  open = ref(false),
-  toast = ref('')
-function unlock(id: string) {
-  const r = rows.value.find((x) => x.id === id)
-  if (r) r.status = 'Đã mở khóa'
-  toast.value = 'Đã mở khóa quyền đặt lịch'
-  setTimeout(() => (toast.value = ''), 1800)
+import { computed, onMounted, ref } from 'vue'
+import { violationsApi } from '@/features/violations/violations.api'
+import type { Violation } from '@/features/violations/violations.types'
+
+const rows = ref<Violation[]>([])
+const loading = ref(false)
+const error = ref('')
+
+const keyword = ref('')
+const typeFilter = ref('')
+
+async function loadViolations() {
+  loading.value = true
+  error.value = ''
+
+  try {
+    rows.value = await violationsApi.list()
+  } catch (err) {
+    console.error('VIOLATIONS API ERROR:', err)
+    error.value = 'Không thể tải danh sách vi phạm.'
+  } finally {
+    loading.value = false
+  }
 }
+
+const visibleRows = computed(() => {
+  const q = keyword.value.trim().toLowerCase()
+
+  return rows.value.filter((item) => {
+    const matchesKeyword =
+      !q ||
+      item.userName?.toLowerCase().includes(q) ||
+      item.id.toLowerCase().includes(q)
+
+    const matchesType =
+      !typeFilter.value ||
+      item.type === typeFilter.value
+
+    return matchesKeyword && matchesType
+  })
+})
+
+function formatDate(date: string) {
+  return new Date(date).toLocaleDateString('vi-VN')
+}
+
+function typeText(type: string) {
+  switch (type) {
+    case 'NoShow':
+      return 'Không đến'
+
+    case 'LateReturn':
+      return 'Trả trễ'
+
+    case 'Damage':
+      return 'Hư hỏng'
+
+    default:
+      return type
+  }
+}
+
+onMounted(loadViolations)
 </script>
+
 <template>
   <div>
     <div class="toolbar">
-      <input class="input search" placeholder="Tìm người dùng hoặc mã vi phạm..." /><select
+      <input
+        v-model="keyword"
+        class="input search"
+        placeholder="Tìm người dùng hoặc mã vi phạm..."
+      />
+
+      <select
+        v-model="typeFilter"
         class="select"
       >
-        <option>Tất cả vi phạm</option>
-        <option>Không đến</option>
-        <option>Trả trễ</option>
-        <option>Hư hỏng</option></select
-      ><button class="btn btn-primary" @click="open = true">+ Ghi nhận vi phạm</button>
+        <option value="">
+          Tất cả vi phạm
+        </option>
+
+        <option value="NoShow">
+          Không đến
+        </option>
+
+        <option value="LateReturn">
+          Trả trễ
+        </option>
+
+        <option value="Damage">
+          Hư hỏng
+        </option>
+      </select>
     </div>
-    <div class="panel table-wrap">
+
+    <div
+      v-if="error"
+      class="notice notice-danger"
+    >
+      {{ error }}
+    </div>
+
+    <div
+      v-if="loading"
+      class="panel empty"
+    >
+      Đang tải danh sách vi phạm...
+    </div>
+
+    <div
+      v-else
+      class="panel table-wrap"
+    >
       <table class="data-table">
         <thead>
           <tr>
             <th>Người dùng</th>
-            <th>Khoa</th>
+            <th>Mã booking</th>
             <th>Vi phạm</th>
             <th>Ngày</th>
-            <th>Chế tài</th>
-            <th>Trạng thái</th>
-            <th>Hành động</th>
+            <th>Ghi chú</th>
           </tr>
         </thead>
+
         <tbody>
-          <tr v-for="r in rows" :key="r.id">
-            <td>
-              <strong>{{ r.person }}</strong
-              ><br /><small>{{ r.id }}</small>
+          <tr v-if="visibleRows.length === 0">
+            <td
+              colspan="5"
+              class="empty-cell"
+            >
+              Không có dữ liệu vi phạm.
             </td>
-            <td>{{ r.department }}</td>
-            <td>{{ r.type }}</td>
-            <td>{{ r.date }}</td>
+          </tr>
+
+          <tr
+            v-for="r in visibleRows"
+            :key="r.id"
+          >
             <td>
-              <span class="badge badge-red">{{ r.penalty }}</span>
+              <strong>
+                {{ r.userName ?? 'Người dùng' }}
+              </strong>
+
+              <br />
+
+              <small>
+                {{ r.userId }}
+              </small>
             </td>
-            <td>{{ r.status }}</td>
+
             <td>
-              <button v-if="r.status === 'Đang khóa'" class="btn btn-sm" @click="unlock(r.id)">
-                Mở khóa</button
-              ><span v-else class="muted">Đã xử lý</span>
+              {{ r.bookingId ?? '-' }}
+            </td>
+
+            <td>
+              <span class="badge badge-red">
+                {{ typeText(r.type) }}
+              </span>
+            </td>
+
+            <td>
+              {{ formatDate(r.recordedAt) }}
+            </td>
+
+            <td>
+              {{ r.note ?? '-' }}
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div v-if="open" class="modal-backdrop" @click.self="open = false">
-      <form
-        class="modal"
-        @submit.prevent="
-          open = false
-          toast = 'Đã ghi nhận vi phạm'
-        "
-      >
-        <div class="panel-header">
-          <h2>Ghi nhận vi phạm</h2>
-          <button type="button" class="icon-button" @click="open = false">×</button>
-        </div>
-        <div class="panel-body form-grid">
-          <div class="field span-2">
-            <label>Người dùng</label
-            ><input class="input" required placeholder="Tìm theo tên hoặc mã số" />
-          </div>
-          <div class="field">
-            <label>Loại vi phạm</label
-            ><select class="select">
-              <option>Không đến (no-show)</option>
-              <option>Trả trễ > 30 phút</option>
-              <option>Làm hỏng thiết bị</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Chế tài</label
-            ><select class="select">
-              <option>Cảnh cáo</option>
-              <option>Khóa 7 ngày</option>
-              <option>Khóa 30 ngày</option>
-            </select>
-          </div>
-          <div class="field span-2">
-            <label>Ghi chú</label><textarea class="textarea"></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn" @click="open = false">Hủy</button
-          ><button class="btn btn-primary">Ghi nhận</button>
-        </div>
-      </form>
-    </div>
-    <div v-if="toast" class="toast">{{ toast }}</div>
   </div>
 </template>
+
+<style scoped>
+.empty {
+  padding: 25px;
+  text-align: center;
+  color: #7f899a;
+}
+
+.empty-cell {
+  text-align: center;
+  color: #7f899a;
+}
+</style>

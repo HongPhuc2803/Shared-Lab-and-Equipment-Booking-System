@@ -8,20 +8,24 @@ const route = useRoute()
 const router = useRouter()
 const mobileOpen = ref(false)
 
-const requesterNav = [
+type NavItem = [string, string, string]
+
+const requesterNav: NavItem[] = [
   ['Tổng quan', '/resources', 'home'],
   ['Danh mục', '/resources', 'grid'],
   ['Đặt lịch của tôi', '/my-bookings', 'calendar'],
   ['Hàng đợi', '/my-bookings?tab=waitlist', 'clock'],
   ['Thông báo', '/notifications', 'bell'],
 ]
-const managerNav = [
+
+const managerNav: NavItem[] = [
   ['Chờ duyệt', '/manager/approvals', 'check'],
   ['Lịch bảo trì', '/manager/maintenance', 'tool'],
   ['Vi phạm', '/manager/violations', 'shield'],
   ['Danh mục', '/resources', 'grid'],
 ]
-const adminNav = [
+
+const adminNav: NavItem[] = [
   ['Dashboard', '/admin/dashboard', 'chart'],
   ['Danh mục', '/admin/resources', 'grid'],
   ['Quy tắc ưu tiên', '/admin/settings', 'settings'],
@@ -79,9 +83,14 @@ async function logout() {
           <p>{{ route.meta.subtitle }}</p>
         </div>
         <div class="top-actions">
-          <button class="icon-button" title="Thông báo" aria-label="Thông báo">
+          <RouterLink
+            to="/notifications"
+            class="icon-button"
+            title="Thông báo"
+            aria-label="Thông báo"
+          >
             <span class="nav-icon" data-icon="bell"></span><i></i>
-          </button>
+          </RouterLink>
           <div class="user-block">
             <span class="avatar">{{ auth.user?.fullName?.split(' ').slice(-1)[0]?.[0] }}</span>
             <div>
