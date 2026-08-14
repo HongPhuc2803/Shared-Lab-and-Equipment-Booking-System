@@ -99,6 +99,15 @@ const routes = [
         },
       },
       {
+        path: 'admin/users',
+        component: () => import('@/views/UsersView.vue'),
+        meta: {
+        title: 'Quản lý người dùng',
+        subtitle: 'Danh sách người dùng trong hệ thống',
+        roles: ['Admin'],
+      },
+},
+      {
         path: 'admin/settings',
         component: () => import('@/views/SettingsView.vue'),
         meta: {

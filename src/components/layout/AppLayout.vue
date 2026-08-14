@@ -80,9 +80,14 @@ async function logout() {
           <p>{{ route.meta.subtitle }}</p>
         </div>
         <div class="top-actions">
-          <button class="icon-button" title="Thông báo" aria-label="Thông báo">
+          <RouterLink
+            to="/notifications"
+            class="icon-button"
+            title="Thông báo"
+            aria-label="Thông báo"
+          >
             <span class="nav-icon" data-icon="bell"></span><i></i>
-          </button>
+          </RouterLink>
           <div class="user-block">
             <span class="avatar">{{ auth.user?.fullName?.split(' ').slice(-1)[0]?.[0] }}</span>
             <div>
