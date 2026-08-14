@@ -1,11 +1,24 @@
+export type UserRole = 'Admin' | 'LabManager' | 'Requester'
+export type UserStatus = 'Active' | 'Restricted' | 'Disabled'
+
 export interface User {
-  id: number
-  name: string
-  username: string
+  id: string
+  fullName: string
   email: string
-  phone?: string
-  website?: string
+  role: UserRole
+  status: UserStatus
+  createdAt: string
 }
 
-export type CreateUserInput = Omit<User, 'id'>
-export type UpdateUserInput = Partial<CreateUserInput>
+export interface CreateUserInput {
+  fullName: string
+  email: string
+  password: string
+  role: UserRole
+}
+
+export interface UpdateUserInput {
+  fullName: string
+  role: UserRole
+  status: UserStatus
+}

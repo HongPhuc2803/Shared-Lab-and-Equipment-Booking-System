@@ -8,7 +8,7 @@ import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseCard from '@/components/ui/BaseCard.vue'
 import BaseSpinner from '@/components/ui/BaseSpinner.vue'
 import UserFormDialog from '@/features/users/UserFormDialog.vue'
-import type { CreateUserInput, User } from '@/features/users/users.types'
+import type { CreateUserInput, UpdateUserInput, User } from '@/features/users/users.types'
 
 const { t } = useI18n()
 const store = useUsersStore()
@@ -31,9 +31,9 @@ function openEdit(user: User) {
   dialogOpen.value = true
 }
 
-async function handleSubmit(input: CreateUserInput) {
-  if (editing.value) await store.update(editing.value.id, input)
-  else await store.create(input)
+async function handleSubmit(input: CreateUserInput | UpdateUserInput) {
+  if (editing.value) await store.update(editing.value.id, input as UpdateUserInput)
+  else await store.create(input as CreateUserInput)
   dialogOpen.value = false
 }
 </script>
@@ -63,8 +63,9 @@ async function handleSubmit(input: CreateUserInput) {
         >
           <tr>
             <th class="px-4 py-3 font-medium">{{ t('users.name') }}</th>
-            <th class="px-4 py-3 font-medium">{{ t('users.username') }}</th>
             <th class="px-4 py-3 font-medium">{{ t('users.email') }}</th>
+            <th class="px-4 py-3 font-medium">{{ t('users.role') }}</th>
+            <th class="px-4 py-3 font-medium">{{ t('users.status') }}</th>
             <th class="px-4 py-3 text-right font-medium">{{ t('users.actions') }}</th>
           </tr>
         </thead>
@@ -79,9 +80,10 @@ async function handleSubmit(input: CreateUserInput) {
             :key="u.id"
             class="border-b border-gray-100 last:border-0 dark:border-gray-800"
           >
-            <td class="px-4 py-3 font-medium">{{ u.name }}</td>
-            <td class="px-4 py-3 text-gray-500">@{{ u.username }}</td>
+            <td class="px-4 py-3 font-medium">{{ u.fullName }}</td>
             <td class="px-4 py-3 text-gray-500">{{ u.email }}</td>
+            <td class="px-4 py-3 text-gray-500">{{ u.role }}</td>
+            <td class="px-4 py-3 text-gray-500">{{ u.status }}</td>
             <td class="px-4 py-3">
               <div class="flex justify-end gap-2">
                 <BaseButton size="sm" variant="secondary" @click="openEdit(u)">
