@@ -1,9 +1,12 @@
+export type UserRole = 'Admin' | 'LabManager' | 'Requester'
+export type UserStatus = 'Active' | 'Restricted' | 'Disabled'
+
 export interface User {
   id: string
   fullName: string
   email: string
-  role: string
-  status: string
+  role: UserRole
+  status: UserStatus
   createdAt: string
 }
 
@@ -30,13 +33,11 @@ export interface CreateUserInput {
   fullName: string
   email: string
   password: string
-  role: number
-  departmentId?: string | null
+  role: UserRole
 }
 
 export interface UpdateUserInput {
   fullName: string
-  role: number
-  status: number
-  departmentId?: string | null
+  role: UserRole
+  status: UserStatus
 }

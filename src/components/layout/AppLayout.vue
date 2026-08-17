@@ -8,8 +8,7 @@ const route = useRoute()
 const router = useRouter()
 const mobileOpen = ref(false)
 
-type NavItem = [string, string, string]
-
+type NavItem = readonly [label: string, to: string, icon: string]
 const requesterNav: NavItem[] = [
   ['Tổng quan', '/resources', 'home'],
   ['Danh mục', '/resources', 'grid'],
@@ -17,14 +16,12 @@ const requesterNav: NavItem[] = [
   ['Hàng đợi', '/my-bookings?tab=waitlist', 'clock'],
   ['Thông báo', '/notifications', 'bell'],
 ]
-
 const managerNav: NavItem[] = [
   ['Chờ duyệt', '/manager/approvals', 'check'],
   ['Lịch bảo trì', '/manager/maintenance', 'tool'],
   ['Vi phạm', '/manager/violations', 'shield'],
   ['Danh mục', '/resources', 'grid'],
 ]
-
 const adminNav: NavItem[] = [
   ['Dashboard', '/admin/dashboard', 'chart'],
   ['Danh mục', '/admin/resources', 'grid'],

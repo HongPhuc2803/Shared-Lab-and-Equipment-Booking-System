@@ -11,6 +11,7 @@ import UserFormDialog from '@/features/users/UserFormDialog.vue'
 
 import type {
   CreateUserInput,
+  UpdateUserInput,
   User,
 } from '@/features/users/users.types'
 
@@ -42,48 +43,11 @@ function openEdit(user: User) {
   dialogOpen.value = true
 }
 
-function roleToNumber(role: string) {
-  switch (role) {
-    case 'Admin':
-      return 0
-
-    case 'LabManager':
-      return 1
-
-    case 'Requester':
-      return 2
-
-    default:
-      return 2
-  }
-}
-
-function statusToNumber(status: string) {
-  switch (status) {
-    case 'Active':
-      return 0
-
-    case 'Restricted':
-      return 1
-
-    case 'Disabled':
-      return 2
-
-    default:
-      return 0
-  }
-}
-
-async function handleSubmit(input: CreateUserInput) {
+async function handleSubmit(input: CreateUserInput | UpdateUserInput) {
   if (editing.value) {
-    await store.update(editing.value.id, {
-      fullName: input.fullName,
-      role: roleToNumber(editing.value.role),
-      status: statusToNumber(editing.value.status),
-      departmentId: input.departmentId,
-    })
+    await store.update(editing.value.id, input as UpdateUserInput)
   } else {
-    await store.create(input)
+    await store.create(input as CreateUserInput)
   }
 
   dialogOpen.value = false
