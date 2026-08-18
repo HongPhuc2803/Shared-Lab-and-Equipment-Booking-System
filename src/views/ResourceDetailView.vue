@@ -1,57 +1,105 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { resources, statusLabel } from '@/data/mock'
+import { resourcesApi } from '@/features/resources/resources.api'
+import type { Resource } from '@/features/resources/resources.types'
+
 const route = useRoute()
-const resource = computed(
-  () => resources.find((r) => r.id === Number(route.params.id)) ?? resources[0],
-)
+const resource = ref<Resource | null>(null)
+const loading = ref(true)
+const error = ref('')
+
+async function loadResource() {
+  loading.value = true
+  error.value = ''
+  try {
+    resource.value = await resourcesApi.getById(route.params.id as string)
+  } catch (err) {
+    console.error('LOAD RESOURCE DETAIL ERROR:', err)
+    error.value = 'Không thể tải thông tin chi tiết tài nguyên.'
+  } finally {
+    loading.value = false
+  }
+}
+
+function statusText(status?: string) {
+  if (!status) return ''
+  switch (status) {
+    case 'Available':
+      return 'Sẵn sàng'
+    case 'Maintenance':
+      return 'Bảo trì'
+    case 'Inactive':
+      return 'Ngừng sử dụng'
+    default:
+      return status
+  }
+}
+
+onMounted(loadResource)
 </script>
+
 <template>
-  <div class="detail">
+  <div v-if="loading" class="notice text-center" style="margin: 40px;">
+    Đang tải thông tin chi tiết...
+  </div>
+  <div v-else-if="error" class="notice notice-danger" style="margin: 40px;">
+    {{ error }}
+  </div>
+  <div v-else-if="resource" class="detail">
     <div class="detail-hero">
-      <img :src="resource.image" :alt="resource.name" />
+      <img
+        :src="resource.imageUrl || 'https://images.unsplash.com/photo-1581093458791-9d42e3c4a896?auto=format&fit=crop&w=900&q=80'"
+        :alt="resource.name"
+      />
       <div class="detail-overlay">
         <span
           class="badge"
-          :class="resource.status === 'available' ? 'badge-green' : 'badge-red'"
-          >{{ statusLabel[resource.status] }}</span
+          :class="resource.status === 'Available' ? 'badge-green' : 'badge-red'"
         >
+          {{ statusText(resource.status) }}
+        </span>
         <h2>{{ resource.name }}</h2>
-        <p>{{ resource.code }} · {{ resource.location }}</p>
+        <p>{{ resource.type === 'Room' ? 'Phòng lab' : 'Thiết bị' }} · {{ resource.departmentName || 'Chưa phân khoa' }}</p>
       </div>
     </div>
+    
     <div class="detail-grid">
       <section class="panel">
         <div class="panel-header"><h2>Thông tin tài nguyên</h2></div>
         <div class="panel-body">
-          <p class="description">{{ resource.description }}</p>
-          <div class="spec-grid">
-            <div v-for="(value, key) in resource.specs" :key="key">
-              <small>{{ key }}</small
-              ><strong>{{ value }}</strong>
-            </div>
-          </div>
+          <p class="description">
+            {{ resource.specifications || 'Không có mô tả chi tiết.' }}
+          </p>
         </div>
       </section>
+      
       <aside class="panel booking-aside">
         <div>
-          <small>ĐƠN VỊ QUẢN LÝ</small><strong>{{ resource.department }}</strong>
+          <small>ĐƠN VỊ QUẢN LÝ</small>
+          <strong>{{ resource.departmentName || 'Chưa phân khoa' }}</strong>
         </div>
         <div>
-          <small>TRẠNG THÁI HIỆN TẠI</small><strong>{{ statusLabel[resource.status] }}</strong>
+          <small>TRẠNG THÁI HIỆN TẠI</small>
+          <strong>{{ statusText(resource.status) }}</strong>
         </div>
         <RouterLink
-          v-if="resource.status === 'available'"
+          v-if="resource.status === 'Available'"
           class="btn btn-primary"
           :to="`/resources/${resource.id}/calendar`"
-          >Xem lịch khả dụng</RouterLink
-        ><button v-else class="btn" disabled>Tạm ngừng nhận lịch</button>
+        >
+          Xem lịch khả dụng
+        </RouterLink>
+        <button v-else class="btn" disabled>Tạm ngừng nhận lịch</button>
       </aside>
+      
       <section class="panel rules">
         <div class="panel-header"><h2>Nội quy & an toàn</h2></div>
         <div class="panel-body">
-          <ol>
+          <div v-if="resource.usageRules" class="description" style="white-space: pre-line;">
+            {{ resource.usageRules }}
+          </div>
+          <ol v-else>
             <li>Check-in đúng giờ và xuất trình thẻ sinh viên/cán bộ.</li>
             <li>Tuân thủ hướng dẫn an toàn và sử dụng đúng thiết bị đã đăng ký.</li>
             <li>Báo cáo ngay mọi hư hỏng hoặc sự cố sau khi sử dụng.</li>
@@ -59,19 +107,23 @@ const resource = computed(
           </ol>
         </div>
       </section>
+      
       <section class="panel docs">
         <div class="panel-header"><h2>Tài liệu hướng dẫn</h2></div>
         <div class="panel-body">
-          <a href="#" class="document"
-            ><span>PDF</span>
+          <a href="#" class="document">
+            <span>PDF</span>
             <div>
-              <strong>Hướng dẫn vận hành & an toàn</strong><small>2.4 MB · cập nhật 01/2026</small>
+              <strong>Hướng dẫn vận hành & an toàn</strong>
+              <small>2.4 MB · cập nhật 01/2026</small>
             </div>
-            <b>↓</b></a
-          >
+            <b>↓</b>
+          </a>
           <h3>Thiết bị đi kèm</h3>
           <div class="child-list">
-            <span>Nguồn DC Keysight</span><span>Máy tính trạm</span><span>Bộ kit thực hành</span>
+            <span>Nguồn DC Keysight</span>
+            <span>Máy tính trạm</span>
+            <span>Bộ kit thực hành</span>
           </div>
         </div>
       </section>
