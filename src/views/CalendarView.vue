@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { resourcesApi } from '@/features/resources/resources.api'
 import { http, unwrapApiResponse } from '@/lib/api/http'
@@ -23,6 +23,8 @@ const resource = ref<any>(null)
 const apiSlots = ref<any[]>([])
 const loading = ref(false)
 const errorMsg = ref('')
+const now = ref(Date.now())
+let clockTimer: ReturnType<typeof setInterval> | undefined
 
 function getMonday(d: Date) {
   const date = new Date(d)
@@ -140,6 +142,8 @@ const parsedSlots = computed(() => {
     const gridSpan = Math.max(1, Math.round(clampedEnd - clampedStart))
 
     const statusLower = (slot.status || slot.type || '').toLowerCase()
+    if (statusLower === 'free' && startD.getTime() <= now.value) continue
+
     let typeClass = 'booked'
     let label = 'Đã đặt'
     if (statusLower === 'free') {
@@ -172,12 +176,19 @@ function formatLocalISO(date: Date) {
 }
 
 function selectSlot(s: any) {
+  const resourceId = route.params.id as string | undefined
+  const startDate = new Date(s.raw.startTime)
+
+  if (!resourceId || Number.isNaN(startDate.getTime()) || startDate.getTime() <= Date.now()) {
+    return
+  }
+
   const startStr = formatLocalISO(new Date(s.raw.startTime))
   const endStr = formatLocalISO(new Date(s.raw.endTime))
   router.push({
     path: '/bookings/new',
     query: {
-      resource: resource.value?.id,
+      resource: resourceId,
       start: startStr,
       end: endStr,
     },
@@ -186,6 +197,13 @@ function selectSlot(s: any) {
 
 onMounted(() => {
   fetchData()
+  clockTimer = setInterval(() => {
+    now.value = Date.now()
+  }, 30_000)
+})
+
+onUnmounted(() => {
+  if (clockTimer) clearInterval(clockTimer)
 })
 </script>
 

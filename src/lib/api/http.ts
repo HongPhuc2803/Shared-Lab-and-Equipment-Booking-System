@@ -4,17 +4,17 @@ import type { LoginResponse } from '@/features/auth/auth.types'
 import { tokenStorage } from './token-storage'
 
 export interface ApiResponse<T> {
-  statusCode: number
+  statusCode: string
   isSuccess: boolean
   errorMessages: string[]
   result: T | null
 }
 
 export class ApiError extends Error {
-  readonly status: number
+  readonly status: number | string
   readonly messages: string[]
 
-  constructor(status: number, messages: string[] = []) {
+  constructor(status: number | string, messages: string[] = []) {
     super(messages[0] ?? `Yêu cầu thất bại (${status || 'không thể kết nối máy chủ'}).`)
     this.name = 'ApiError'
     this.status = status
