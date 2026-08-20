@@ -46,6 +46,22 @@ export const bookingsApi = {
     return unwrapApiResponse(data)
   },
 
+  checkIn: async (bookingId: string): Promise<Booking> => {
+    const { data } = await http.post<ApiResponse<Booking>>(
+      `/Bookings/${bookingId}/checkin`,
+    )
+
+    return unwrapApiResponse(data)
+  },
+
+  checkOut: async (bookingId: string): Promise<Booking> => {
+    const { data } = await http.post<ApiResponse<Booking>>(
+      `/Bookings/${bookingId}/checkout`,
+    )
+
+    return unwrapApiResponse(data)
+  },
+
   approve: async (bookingId: string): Promise<Booking> => {
     const { data } = await http.post<ApiResponse<Booking>>(
       `/Bookings/${bookingId}/approve`,

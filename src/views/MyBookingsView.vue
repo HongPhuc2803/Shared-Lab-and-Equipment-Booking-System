@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { bookingsApi } from '@/features/bookings/bookings.api'
 import { waitlistsApi } from '@/features/waitlists/waitlists.api'
@@ -18,6 +18,10 @@ const loading = ref(false)
 const waitlistLoading = ref(false)
 const error = ref('')
 const waitlistError = ref('')
+const actionError = ref('')
+const processingBookingId = ref<string | null>(null)
+const now = ref(Date.now())
+let clockTimer: ReturnType<typeof setInterval> | undefined
 
 async function loadBookings() {
   loading.value = true
@@ -67,12 +71,59 @@ async function leaveWaitlist(waitlistId: string) {
   }
 }
 
+function canCheckIn(booking: Booking) {
+  const startTime = new Date(booking.startTime).getTime()
+  const endTime = new Date(booking.endTime).getTime()
+
+  return (
+    booking.status === 'Approved' &&
+    !booking.checkInTime &&
+    now.value >= startTime - 2 * 60 * 60 * 1000 &&
+    now.value <= endTime
+  )
+}
+
+function canCheckOut(booking: Booking) {
+  return Boolean(booking.checkInTime && !booking.checkOutTime)
+}
+
+async function checkIn(bookingId: string) {
+  processingBookingId.value = bookingId
+  actionError.value = ''
+
+  try {
+    await bookingsApi.checkIn(bookingId)
+    await loadBookings()
+  } catch (err) {
+    console.error('CHECK-IN ERROR:', err)
+    actionError.value = 'Không thể check-in. Vui lòng kiểm tra thời gian đặt lịch và thử lại.'
+  } finally {
+    processingBookingId.value = null
+  }
+}
+
+async function checkOut(bookingId: string) {
+  processingBookingId.value = bookingId
+  actionError.value = ''
+
+  try {
+    await bookingsApi.checkOut(bookingId)
+    await loadBookings()
+  } catch (err) {
+    console.error('CHECK-OUT ERROR:', err)
+    actionError.value = 'Không thể check-out. Vui lòng thử lại.'
+  } finally {
+    processingBookingId.value = null
+  }
+}
+
 const upcomingBookings = computed(() => {
   const now = new Date()
 
   return bookings.value.filter(
     (booking) =>
-      new Date(booking.endTime) >= now &&
+      (new Date(booking.endTime) >= now ||
+        Boolean(booking.checkInTime && !booking.checkOutTime)) &&
       booking.status !== 'Cancelled' &&
       booking.status !== 'Completed',
   )
@@ -83,7 +134,8 @@ const historyBookings = computed(() => {
 
   return bookings.value.filter(
     (booking) =>
-      new Date(booking.endTime) < now ||
+      (new Date(booking.endTime) < now &&
+        !Boolean(booking.checkInTime && !booking.checkOutTime)) ||
       booking.status === 'Cancelled' ||
       booking.status === 'Completed',
   )
@@ -145,10 +197,18 @@ function waitlistStatusText(status: string) {
 }
 
 onMounted(async () => {
+  clockTimer = setInterval(() => {
+    now.value = Date.now()
+  }, 30_000)
+
   await Promise.all([
     loadBookings(),
     loadWaitlists(),
   ])
+})
+
+onUnmounted(() => {
+  if (clockTimer) clearInterval(clockTimer)
 })
 </script>
 
@@ -208,6 +268,10 @@ onMounted(async () => {
       v-else-if="tab === 'upcoming'"
       class="booking-list"
     >
+      <div v-if="actionError" class="panel action-error">
+        {{ actionError }}
+      </div>
+
       <div
         v-if="upcomingBookings.length === 0"
         class="panel empty"
@@ -254,6 +318,26 @@ onMounted(async () => {
         </div>
 
         <div class="booking-actions">
+          <button
+            v-if="canCheckIn(b)"
+            class="btn btn-primary"
+            type="button"
+            :disabled="processingBookingId === b.id"
+            @click="checkIn(b.id)"
+          >
+            {{ processingBookingId === b.id ? 'Đang xử lý...' : 'Check-in' }}
+          </button>
+
+          <button
+            v-if="canCheckOut(b)"
+            class="btn btn-primary"
+            type="button"
+            :disabled="processingBookingId === b.id"
+            @click="checkOut(b.id)"
+          >
+            {{ processingBookingId === b.id ? 'Đang xử lý...' : 'Check-out' }}
+          </button>
+
           <RouterLink
             class="btn"
             :to="`/bookings/${b.id}/report-issue`"
@@ -450,6 +534,17 @@ onMounted(async () => {
   display: flex;
   gap: 7px;
   align-items: center;
+}
+
+.action-error {
+  padding: 12px 16px;
+  color: #c33942;
+  font-size: 12px;
+}
+
+.booking-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .waitlist {
