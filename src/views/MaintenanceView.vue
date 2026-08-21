@@ -27,6 +27,8 @@ const error = ref('')
 const form = ref({
   resourceId: '',
   date: '',
+  startTime: '08:00',
+  endTime: '10:00',
   type: 'Bảo trì định kỳ',
   cost: '0',
 })
@@ -44,14 +46,11 @@ async function loadData() {
   try {
     const [maintenanceList, resourceResult] = await Promise.all([
       maintenancesApi.list(),
-      resourcesApi.list({
-        page: 1,
-        pageSize: 100,
-      }),
+      resourcesApi.listAll(),
     ])
 
     rows.value = maintenanceList
-    resources.value = resourceResult.items
+    resources.value = resourceResult
 
     if (!form.value.resourceId && resources.value.length > 0) {
       form.value.resourceId = resources.value[0]!.id
@@ -74,8 +73,13 @@ async function add() {
   error.value = ''
 
   try {
-    const start = new Date(`${form.value.date}T08:00:00`)
-    const end = new Date(`${form.value.date}T10:00:00`)
+    const start = new Date(`${form.value.date}T${form.value.startTime}:00`)
+    const end = new Date(`${form.value.date}T${form.value.endTime}:00`)
+
+    if (end <= start) {
+      error.value = 'Giờ kết thúc phải sau giờ bắt đầu.'
+      return
+    }
 
     const input: CreateMaintenanceInput = {
       resourceId: form.value.resourceId,
@@ -133,6 +137,14 @@ async function resolveMaintenance(id: string) {
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString('vi-VN')
+}
+
+
+function formatTime(date: string) {
+  return new Date(date).toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 
@@ -255,7 +267,10 @@ const availableResources = computed(() => {
             </td>
 
             <td>
-              {{ formatDate(r.startTime) }}
+              {{ formatDate(r.startTime) }}<br />
+              <span class="muted">
+                {{ formatTime(r.startTime) }} - {{ formatTime(r.endTime) }}
+              </span>
             </td>
 
             <td>
@@ -350,6 +365,34 @@ const availableResources = computed(() => {
               v-model="form.date"
               class="input"
               type="date"
+              required
+            />
+          </div>
+
+
+          <div class="field">
+            <label>
+              Giờ bắt đầu
+            </label>
+
+            <input
+              v-model="form.startTime"
+              class="input"
+              type="time"
+              required
+            />
+          </div>
+
+
+          <div class="field">
+            <label>
+              Giờ kết thúc
+            </label>
+
+            <input
+              v-model="form.endTime"
+              class="input"
+              type="time"
               required
             />
           </div>

@@ -17,6 +17,24 @@ export const resourcesApi = {
     return unwrapApiResponse(data)
   },
 
+  listAll: async (params?: Omit<ResourceQuery, 'page' | 'pageSize'>): Promise<Resource[]> => {
+    const items: Resource[] = []
+    let page = 1
+    let hasNext = true
+
+    while (hasNext) {
+      const { data } = await http.get<ApiResponse<ResourceListResult>>('/Resources', {
+        params: { ...params, page, pageSize: 100 },
+      })
+      const result = unwrapApiResponse(data)
+      items.push(...result.items)
+      hasNext = result.hasNext
+      page += 1
+    }
+
+    return items
+  },
+
   getById: async (id: string): Promise<Resource> => {
     const { data } = await http.get<ApiResponse<Resource>>(
       `/Resources/${id}`,

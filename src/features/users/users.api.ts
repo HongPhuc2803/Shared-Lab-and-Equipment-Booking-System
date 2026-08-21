@@ -17,6 +17,24 @@ export const usersApi = {
     return unwrapApiResponse(data)
   },
 
+  listAll: async (params?: Omit<UserQuery, 'page' | 'pageSize'>): Promise<User[]> => {
+    const items: User[] = []
+    let page = 1
+    let hasNext = true
+
+    while (hasNext) {
+      const { data } = await http.get<ApiResponse<UserListResult>>('/Users', {
+        params: { ...params, page, pageSize: 100 },
+      })
+      const result = unwrapApiResponse(data)
+      items.push(...result.items)
+      hasNext = result.hasNext
+      page += 1
+    }
+
+    return items
+  },
+
   getById: async (id: string): Promise<User> => {
     const { data } = await http.get<ApiResponse<User>>(
       `/Users/${id}`,

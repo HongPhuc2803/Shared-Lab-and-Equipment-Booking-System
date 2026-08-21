@@ -18,6 +18,24 @@ export const bookingsApi = {
     return unwrapApiResponse(data)
   },
 
+  listAll: async (params?: Omit<BookingQuery, 'page' | 'pageSize'>): Promise<Booking[]> => {
+    const items: Booking[] = []
+    let page = 1
+    let hasNext = true
+
+    while (hasNext) {
+      const { data } = await http.get<ApiResponse<PaginationResponse<Booking>>>('/Bookings', {
+        params: { ...params, page, pageSize: 100 },
+      })
+      const result = unwrapApiResponse(data)
+      items.push(...result.items)
+      hasNext = result.hasNext
+      page += 1
+    }
+
+    return items
+  },
+
   getById: async (bookingId: string): Promise<Booking> => {
     const { data } = await http.get<ApiResponse<Booking>>(
       `/Bookings/${bookingId}`,

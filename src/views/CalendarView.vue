@@ -7,18 +7,11 @@ import { http, unwrapApiResponse } from '@/lib/api/http'
 const route = useRoute()
 const router = useRouter()
 
-const view = ref('Tuần')
+const OPERATING_START_HOUR = 7
+const OPERATING_END_HOUR = 22
+const OPERATING_HOURS = OPERATING_END_HOUR - OPERATING_START_HOUR
 
-// Anchor initial date to August 17, 2026 if today is not in August 2026, to match development data context
-const getInitialDate = () => {
-  const now = new Date()
-  if (now.getFullYear() !== 2026) {
-    return new Date('2026-08-17T10:00:00')
-  }
-  return now
-}
-
-const currentMonday = ref(getMonday(getInitialDate()))
+const currentMonday = ref(getMonday(new Date()))
 const resource = ref<any>(null)
 const apiSlots = ref<any[]>([])
 const loading = ref(false)
@@ -133,12 +126,12 @@ const parsedSlots = computed(() => {
     const startHourDecimal = startD.getHours() + startD.getMinutes() / 60
     const endHourDecimal = endD.getHours() + endD.getMinutes() / 60
 
-    if (endHourDecimal <= 7 || startHourDecimal >= 22) continue
+    if (endHourDecimal <= OPERATING_START_HOUR || startHourDecimal >= OPERATING_END_HOUR) continue
 
-    const clampedStart = Math.max(7, startHourDecimal)
-    const clampedEnd = Math.min(22, endHourDecimal)
+    const clampedStart = Math.max(OPERATING_START_HOUR, startHourDecimal)
+    const clampedEnd = Math.min(OPERATING_END_HOUR, endHourDecimal)
 
-    const gridStart = Math.floor(clampedStart - 7)
+    const gridStart = Math.floor(clampedStart - OPERATING_START_HOUR)
     const gridSpan = Math.max(1, Math.round(clampedEnd - clampedStart))
 
     const statusLower = (slot.status || slot.type || '').toLowerCase()
@@ -210,16 +203,7 @@ onUnmounted(() => {
 <template>
   <div class="calendar-panel panel">
     <div class="calendar-toolbar">
-      <div class="segmented">
-        <button
-          v-for="v in ['Ngày', 'Tuần', 'Tháng']"
-          :key="v"
-          :class="{ active: view === v }"
-          @click="view = v"
-        >
-          {{ v }}
-        </button>
-      </div>
+      <strong>Lịch theo tuần</strong>
       <div class="week-nav">
         <button class="icon-button" :disabled="loading" @click="changeWeek(-1)">‹</button>
         <strong>{{ weekLabel }}</strong>
@@ -257,16 +241,16 @@ onUnmounted(() => {
 
         <!-- Time column -->
         <div
-          v-for="h in 15"
+          v-for="h in OPERATING_HOURS"
           :key="'time-' + h"
           class="time"
           :style="{ gridColumn: 1, gridRow: h + 1 }"
         >
-          {{ String(h + 6).padStart(2, '0') }}:00
+          {{ String(h + OPERATING_START_HOUR - 1).padStart(2, '0') }}:00
         </div>
 
         <!-- Background grid cells -->
-        <template v-for="h in 15" :key="'row-' + h">
+        <template v-for="h in OPERATING_HOURS" :key="'row-' + h">
           <div
             v-for="d in 7"
             :key="'cell-' + h + '-' + d"

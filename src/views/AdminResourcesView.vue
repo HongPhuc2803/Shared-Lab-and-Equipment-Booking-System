@@ -47,21 +47,15 @@ async function loadData() {
 
   try {
     const [resourceResult, departmentList, userResult] = await Promise.all([
-      resourcesApi.list({
-        page: 1,
-        pageSize: 100,
-      }),
+      resourcesApi.listAll(),
       departmentsApi.list(),
-      usersApi.list({
-        page: 1,
-        pageSize: 100,
-      }),
+      usersApi.listAll(),
     ])
 
-    rows.value = resourceResult.items
+    rows.value = resourceResult
     departments.value = departmentList
 
-    managers.value = userResult.items.filter(
+    managers.value = userResult.filter(
       (user) => user.role === 'LabManager',
     )
   } catch (err) {
@@ -104,10 +98,10 @@ function resourceStatusToNumber(status: string) {
     case 'Available':
       return 0
 
-    case 'Maintenance':
+    case 'UnderMaintenance':
       return 1
 
-    case 'Inactive':
+    case 'Disabled':
       return 2
 
     default:
@@ -133,10 +127,10 @@ function resourceStatusText(status: string) {
     case 'Available':
       return 'Hoạt động'
 
-    case 'Maintenance':
+    case 'UnderMaintenance':
       return 'Bảo trì'
 
-    case 'Inactive':
+    case 'Disabled':
       return 'Ngừng sử dụng'
 
     default:
@@ -149,7 +143,7 @@ function statusClass(status: string) {
     return 'badge-green'
   }
 
-  if (status === 'Maintenance') {
+  if (status === 'UnderMaintenance') {
     return 'badge-red'
   }
 

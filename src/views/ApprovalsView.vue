@@ -8,18 +8,15 @@ const rows = ref<Booking[]>([])
 const loading = ref(false)
 const error = ref('')
 const toast = ref('')
+const rejecting = ref<Booking | null>(null)
+const rejectionReason = ref('')
 
 async function loadBookings() {
   loading.value = true
   error.value = ''
 
   try {
-    const response = await bookingsApi.list({
-      page: 1,
-      pageSize: 100,
-    })
-
-    rows.value = response.items
+    rows.value = await bookingsApi.listAll()
   } catch (err) {
     console.error('APPROVALS LOAD ERROR:', err)
     error.value = 'Không thể tải danh sách yêu cầu.'
@@ -76,11 +73,20 @@ async function approve(booking: Booking) {
   }
 }
 
-async function reject(booking: Booking) {
+function openReject(booking: Booking) {
+  rejecting.value = booking
+  rejectionReason.value = ''
+}
+
+async function reject() {
+  const booking = rejecting.value
+  const reason = rejectionReason.value.trim()
+  if (!booking || !reason) return
+
   try {
     const updated = await bookingsApi.reject(
       booking.id,
-      'Rejected by manager',
+      reason,
     )
 
     const index = rows.value.findIndex(
@@ -92,6 +98,7 @@ async function reject(booking: Booking) {
     }
 
     toast.value = `Đã từ chối yêu cầu ${booking.id}`
+    rejecting.value = null
 
     setTimeout(() => {
       toast.value = ''
@@ -268,7 +275,7 @@ onMounted(loadBookings)
 
                 <button
                   class="btn btn-sm"
-                  @click="reject(r)"
+                  @click="openReject(r)"
                 >
                   Từ chối
                 </button>
@@ -284,6 +291,31 @@ onMounted(loadBookings)
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div v-if="rejecting" class="modal-backdrop" @click.self="rejecting = null">
+      <form class="modal" @submit.prevent="reject">
+        <div class="panel-header">
+          <h2>Từ chối yêu cầu</h2>
+          <button type="button" class="icon-button" @click="rejecting = null">×</button>
+        </div>
+        <div class="panel-body">
+          <div class="field">
+            <label>Lý do từ chối</label>
+            <textarea
+              v-model="rejectionReason"
+              class="textarea"
+              required
+              autofocus
+              placeholder="Nhập lý do để người yêu cầu có thể điều chỉnh..."
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn" @click="rejecting = null">Hủy</button>
+          <button class="btn btn-danger" :disabled="!rejectionReason.trim()">Xác nhận từ chối</button>
+        </div>
+      </form>
     </div>
 
     <div

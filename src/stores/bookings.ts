@@ -16,8 +16,7 @@ export const useBookingsStore = defineStore('bookings', () => {
     loading.value = true
     error.value = null
     try {
-      const response = await bookingsApi.list({ page: 1, pageSize: 100 })
-      items.value = response.items
+      items.value = await bookingsApi.listAll()
     } catch (err: any) {
       error.value = err.message || 'Không thể tải danh sách đặt lịch.'
     } finally {

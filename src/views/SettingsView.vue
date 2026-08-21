@@ -1,36 +1,73 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-const saved = ref(false),
-  noShow = ref(15),
-  cancel = ref(2),
-  weights = ref([
-    { name: 'Nghiên cứu khoa học', value: 100 },
-    { name: 'Đồ án tốt nghiệp', value: 80 },
-    { name: 'Bài tập môn học', value: 50 },
-    { name: 'Tự học', value: 20 },
-  ])
-function save() {
-  saved.value = true
-  setTimeout(() => (saved.value = false), 1800)
+import { onMounted, ref } from 'vue'
+import { priorityRulesApi } from '@/features/priority-rules/priority-rules.api'
+import type { PriorityRule } from '@/features/priority-rules/priority-rules.types'
+
+const saved = ref(false)
+const saving = ref(false)
+const loading = ref(false)
+const error = ref('')
+const noShow = ref(30)
+const cancel = ref(2)
+const rules = ref<PriorityRule[]>([])
+
+async function loadRules() {
+  loading.value = true
+  error.value = ''
+  try {
+    rules.value = await priorityRulesApi.list()
+  } catch (err) {
+    console.error('LOAD PRIORITY RULES ERROR:', err)
+    error.value = 'Không thể tải quy tắc ưu tiên.'
+  } finally {
+    loading.value = false
+  }
 }
+
+async function save() {
+  saving.value = true
+  saved.value = false
+  error.value = ''
+  try {
+    rules.value = await Promise.all(
+      rules.value.map((rule) =>
+        priorityRulesApi.update(rule.id, {
+          name: rule.name,
+          priorityLevel: rule.priorityLevel,
+          description: rule.description,
+        }),
+      ),
+    )
+    saved.value = true
+    setTimeout(() => (saved.value = false), 1800)
+  } catch (err) {
+    console.error('SAVE PRIORITY RULES ERROR:', err)
+    error.value = 'Không thể lưu quy tắc ưu tiên.'
+  } finally {
+    saving.value = false
+  }
+}
+
+onMounted(loadRules)
 </script>
 <template>
   <form class="settings-grid" @submit.prevent="save">
     <section class="panel">
       <div class="panel-header">
         <h2>Trọng số ưu tiên</h2>
-        <span class="badge badge-blue">Điểm cao được duyệt trước</span>
+        <span class="badge badge-blue">Mức nhỏ được ưu tiên trước</span>
       </div>
       <div class="panel-body rule-list">
-        <div v-for="(w, i) in weights" :key="w.name" class="rule-row">
+        <div v-if="loading" class="notice">Đang tải quy tắc ưu tiên...</div>
+        <div v-for="(rule, i) in rules" :key="rule.id" class="rule-row">
           <span class="rank">{{ i + 1 }}</span>
           <div>
-            <strong>{{ w.name }}</strong
-            ><small>Mức ưu tiên {{ i + 1 }}</small>
+            <strong>{{ rule.name }}</strong
+            ><small>{{ rule.description || `Mức ưu tiên ${rule.priorityLevel}` }}</small>
           </div>
           <label
-            ><input v-model.number="w.value" type="number" min="0" max="100" /><span
-              >điểm</span
+            ><input v-model.number="rule.priorityLevel" type="number" min="1" /><span
+              >mức</span
             ></label
           >
         </div>
@@ -39,17 +76,20 @@ function save() {
     <section class="panel">
       <div class="panel-header"><h2>Quy tắc no-show & hủy lịch</h2></div>
       <div class="panel-body setting-fields">
+        <div class="notice">
+          Các giá trị dưới đây đang được quản lý bởi cấu hình backend và chỉ có thể xem tại FE.
+        </div>
         <div class="field">
           <label>Thời gian chờ check-in</label>
           <div class="unit-input">
-            <input v-model="noShow" class="input" type="number" /><span>phút</span>
+            <input v-model="noShow" class="input" type="number" disabled /><span>phút</span>
           </div>
           <small>Tự động ghi nhận no-show sau thời gian này.</small>
         </div>
         <div class="field">
           <label>Hạn hủy lịch trước giờ bắt đầu</label>
           <div class="unit-input">
-            <input v-model="cancel" class="input" type="number" /><span>giờ</span>
+            <input v-model="cancel" class="input" type="number" disabled /><span>giờ</span>
           </div>
         </div>
         <div class="toggle-row">
@@ -57,13 +97,13 @@ function save() {
             <strong>Tự động khóa tài khoản</strong
             ><small>Khi người dùng no-show 3 lần trong 30 ngày</small>
           </div>
-          <input type="checkbox" checked />
+          <input type="checkbox" checked disabled />
         </div>
         <div class="toggle-row">
           <div>
-            <strong>Gửi email nhắc lịch</strong><small>Gửi trước giờ bắt đầu 24 tiếng</small>
+            <strong>Gửi email nhắc lịch</strong><small>Thời điểm gửi được quản lý bởi backend</small>
           </div>
-          <input type="checkbox" checked />
+          <input type="checkbox" checked disabled />
         </div>
       </div>
     </section>
@@ -72,14 +112,14 @@ function save() {
       <div class="panel-body form-grid">
         <div class="field">
           <label>No-show lần thứ 2</label
-          ><select class="select">
+          ><select class="select" disabled>
             <option>Khóa đặt lịch 7 ngày</option>
             <option>Cảnh cáo</option>
           </select>
         </div>
         <div class="field">
           <label>Làm hỏng thiết bị</label
-          ><select class="select">
+          ><select class="select" disabled>
             <option>Khóa đặt lịch 30 ngày</option>
             <option>Khóa vô thời hạn</option>
           </select>
@@ -87,8 +127,11 @@ function save() {
       </div>
     </section>
     <div class="save-bar span-all">
-      <span v-if="saved" class="notice notice-success">Đã lưu cấu hình hệ thống.</span
-      ><button class="btn btn-primary">Lưu cấu hình</button>
+      <span v-if="error" class="notice notice-danger">{{ error }}</span>
+      <span v-if="saved" class="notice notice-success">Đã lưu quy tắc ưu tiên.</span
+      ><button class="btn btn-primary" :disabled="saving || loading">
+        {{ saving ? 'Đang lưu...' : 'Lưu quy tắc ưu tiên' }}
+      </button>
     </div>
   </form>
 </template>

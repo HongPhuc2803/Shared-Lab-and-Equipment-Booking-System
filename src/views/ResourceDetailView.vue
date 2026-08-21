@@ -27,9 +27,9 @@ function statusText(status?: string) {
   switch (status) {
     case 'Available':
       return 'Sẵn sàng'
-    case 'Maintenance':
+    case 'UnderMaintenance':
       return 'Bảo trì'
-    case 'Inactive':
+    case 'Disabled':
       return 'Ngừng sử dụng'
     default:
       return status

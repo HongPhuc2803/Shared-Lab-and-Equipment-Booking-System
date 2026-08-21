@@ -27,9 +27,7 @@ const filtered = computed(() =>
 
 onMounted(async () => {
   try {
-    const data = await resourcesApi.list()
-    resources.value = data.items
-    console.log('RESOURCE API RESULT:', data)
+    resources.value = await resourcesApi.listAll()
   } catch (error) {
     console.error('RESOURCE API ERROR:', error)
   }
@@ -61,8 +59,8 @@ onMounted(async () => {
       <select v-model="status" class="select">
         <option>Tất cả</option>
         <option value="Available">Sẵn sàng</option>
-        <option value="Maintenance">Bảo trì</option>
-        <option value="Inactive">Ngừng sử dụng</option>
+        <option value="UnderMaintenance">Bảo trì</option>
+        <option value="Disabled">Ngừng sử dụng</option>
       </select>
     </div>
 
@@ -91,7 +89,7 @@ onMounted(async () => {
                 :class="
                   r.status === 'Available'
                     ? 'badge-green'
-                    : r.status === 'Maintenance'
+                    : r.status === 'UnderMaintenance'
                       ? 'badge-red'
                       : 'badge-gray'
                 "
@@ -99,7 +97,7 @@ onMounted(async () => {
                 {{
                   r.status === 'Available'
                     ? 'Sẵn sàng'
-                    : r.status === 'Maintenance'
+                    : r.status === 'UnderMaintenance'
                       ? 'Bảo trì'
                       : 'Ngừng sử dụng'
                 }}
