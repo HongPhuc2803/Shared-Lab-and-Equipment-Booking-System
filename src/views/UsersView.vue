@@ -85,7 +85,7 @@ function statusText(status: string) {
     case 'Restricted':
       return 'Bị hạn chế'
 
-    case 'Inactive':
+    case 'Disabled':
       return 'Không hoạt động'
 
     default:

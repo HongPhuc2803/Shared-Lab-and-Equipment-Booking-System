@@ -3,7 +3,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { bookingsApi } from '@/features/bookings/bookings.api'
 import { resourcesApi } from '@/features/resources/resources.api'
+import { priorityRulesApi } from '@/features/priority-rules/priority-rules.api'
 import type { Resource } from '@/features/resources/resources.types'
+import type { PriorityRule } from '@/features/priority-rules/priority-rules.types'
 import type {
   AvailabilitySlot,
   BookingConflictResponse,
@@ -13,12 +15,31 @@ const route = useRoute()
 const router = useRouter()
 
 const resources = ref<Resource[]>([])
+const priorityRules = ref<PriorityRule[]>([])
 const selectedResourceId = ref(String(route.query.resource ?? ''))
 
-const start = ref(String(route.query.start ?? '2026-08-13T09:00'))
-const end = ref(String(route.query.end ?? '2026-08-13T11:00'))
-const purpose = ref('Đề tài nghiên cứu')
-const notes = ref('')
+function formatLocalInput(date: Date) {
+  const offset = date.getTimezoneOffset() * 60_000
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
+}
+
+function defaultBookingRange() {
+  const startDate = new Date()
+  startDate.setSeconds(0, 0)
+  startDate.setMinutes(0)
+  startDate.setHours(startDate.getHours() + 1)
+
+  const endDate = new Date(startDate)
+  endDate.setHours(endDate.getHours() + 1)
+
+  return { start: formatLocalInput(startDate), end: formatLocalInput(endDate) }
+}
+
+const defaultRange = defaultBookingRange()
+const start = ref(String(route.query.start ?? defaultRange.start))
+const end = ref(String(route.query.end ?? defaultRange.end))
+const priorityRuleId = ref('')
+const purpose = ref('')
 
 const loadingResources = ref(false)
 const checking = ref(false)
@@ -33,17 +54,39 @@ const selectedResource = computed(() =>
   resources.value.find((r) => r.id === selectedResourceId.value),
 )
 
+const minDateTime = computed(() => formatLocalInput(new Date()))
+
+const timeValidationError = computed(() => {
+  const startDate = new Date(start.value)
+  const endDate = new Date(end.value)
+
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return 'Thời gian không hợp lệ.'
+  }
+  if (startDate.getTime() < Date.now()) return 'Giờ bắt đầu phải ở tương lai.'
+  if (endDate <= startDate) return 'Giờ kết thúc phải sau giờ bắt đầu.'
+  if (startDate.toDateString() !== endDate.toDateString()) {
+    return 'Lịch đặt phải bắt đầu và kết thúc trong cùng một ngày.'
+  }
+  if (startDate.getHours() < 7 || endDate.getHours() > 22 || (endDate.getHours() === 22 && endDate.getMinutes() > 0)) {
+    return 'Lịch đặt phải nằm trong giờ hoạt động 07:00–22:00.'
+  }
+  return ''
+})
+
 async function loadResources() {
   loadingResources.value = true
   errorMessage.value = ''
 
   try {
-    const response = await resourcesApi.list({
-      page: 1,
-      pageSize: 100,
-    })
+    const [resourceItems, rules] = await Promise.all([
+      resourcesApi.listAll(),
+      priorityRulesApi.list(),
+    ])
 
-    resources.value = response.items
+    resources.value = resourceItems.filter((resource) => resource.status === 'Available')
+    priorityRules.value = rules
+    priorityRuleId.value ||= rules[0]?.id ?? ''
 
     if (
       !selectedResourceId.value ||
@@ -68,7 +111,9 @@ let checkTimer: ReturnType<typeof setTimeout> | undefined
 watch([selectedResourceId, start, end], () => {
   if (checkTimer) clearTimeout(checkTimer)
 
-  if (!selectedResourceId.value || !start.value || !end.value) {
+  if (!selectedResourceId.value || !start.value || !end.value || timeValidationError.value) {
+    conflict.value = false
+    conflictResult.value = null
     return
   }
 
@@ -79,6 +124,12 @@ watch([selectedResourceId, start, end], () => {
 
 async function checkConflict() {
   if (!selectedResourceId.value || !start.value || !end.value) {
+    return
+  }
+
+  if (timeValidationError.value) {
+    conflict.value = false
+    conflictResult.value = null
     return
   }
 
@@ -107,7 +158,9 @@ async function submit() {
     !selectedResourceId.value ||
     conflict.value ||
     checking.value ||
-    submitting.value
+    submitting.value ||
+    timeValidationError.value ||
+    !purpose.value.trim()
   ) {
     return
   }
@@ -120,10 +173,8 @@ async function submit() {
       resourceId: selectedResourceId.value,
       startTime: toApiDateTime(start.value),
       endTime: toApiDateTime(end.value),
-      purpose: notes.value.trim()
-        ? `${purpose.value} - ${notes.value.trim()}`
-        : purpose.value,
-      priorityRuleId: null,
+      purpose: purpose.value.trim(),
+      priorityRuleId: priorityRuleId.value || null,
     })
 
     submitted.value = true
@@ -140,8 +191,8 @@ async function submit() {
 }
 
 function choose(slot: AvailabilitySlot) {
-  start.value = slot.startTime.slice(0, 16)
-  end.value = slot.endTime.slice(0, 16)
+  start.value = formatLocalInput(new Date(slot.startTime))
+  end.value = formatLocalInput(new Date(slot.endTime))
 
   conflict.value = false
   conflictResult.value = null
@@ -211,6 +262,7 @@ onMounted(async () => {
           v-model="start"
           class="input"
           type="datetime-local"
+          :min="minDateTime"
           required
         />
       </div>
@@ -222,29 +274,35 @@ onMounted(async () => {
           v-model="end"
           class="input"
           type="datetime-local"
+          :min="start"
           required
         />
       </div>
 
       <div class="field span-2">
-        <label>Mục đích sử dụng</label>
+        <label>Quy tắc ưu tiên</label>
 
-        <select v-model="purpose" class="select">
-          <option>Đề tài nghiên cứu</option>
-          <option>Đồ án tốt nghiệp</option>
-          <option>Bài tập môn học</option>
-          <option>Tự học</option>
+        <select v-model="priorityRuleId" class="select">
+          <option value="">Không áp dụng</option>
+          <option v-for="rule in priorityRules" :key="rule.id" :value="rule.id">
+            {{ rule.name }}
+          </option>
         </select>
       </div>
 
       <div class="field span-2">
-        <label>Ghi chú chi tiết</label>
+        <label>Mục đích sử dụng</label>
 
         <textarea
-          v-model="notes"
+          v-model="purpose"
           class="textarea"
+          required
           placeholder="Mô tả nội dung công việc, số người tham gia..."
         ></textarea>
+      </div>
+
+      <div v-if="timeValidationError" class="notice notice-danger span-2">
+        {{ timeValidationError }}
       </div>
 
       <div class="span-2">
@@ -258,7 +316,7 @@ onMounted(async () => {
         </div>
 
         <div
-          v-else-if="selectedResourceId && !errorMessage"
+          v-else-if="selectedResourceId && !errorMessage && !timeValidationError"
           class="notice notice-success"
         >
           <strong>Khung giờ khả dụng.</strong>
@@ -317,7 +375,9 @@ onMounted(async () => {
           checking ||
           conflict ||
           submitting ||
-          !selectedResourceId
+          !selectedResourceId ||
+          !!timeValidationError ||
+          !purpose.trim()
         "
       >
         {{ submitting ? 'Đang gửi...' : 'Gửi yêu cầu' }}

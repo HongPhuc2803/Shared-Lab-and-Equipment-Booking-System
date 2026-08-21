@@ -28,12 +28,7 @@ async function loadBookings() {
   error.value = ''
 
   try {
-    const response = await bookingsApi.list({
-      page: 1,
-      pageSize: 100,
-    })
-
-    bookings.value = response.items
+    bookings.value = await bookingsApi.listAll()
   } catch (err) {
     console.error('BOOKINGS API ERROR:', err)
     error.value = 'Không thể tải danh sách đặt lịch.'

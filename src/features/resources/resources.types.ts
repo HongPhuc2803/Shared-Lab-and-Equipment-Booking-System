@@ -1,6 +1,6 @@
 export type ResourceType = 'Room' | 'Equipment'
 
-export type ResourceStatus = 'Available' | 'Maintenance' | 'Inactive'
+export type ResourceStatus = 'Available' | 'UnderMaintenance' | 'Disabled'
 
 export interface Resource {
   id: string

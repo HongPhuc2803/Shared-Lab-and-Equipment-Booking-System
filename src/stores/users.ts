@@ -31,12 +31,7 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
 
     try {
-      const response = await usersApi.list({
-        page: 1,
-        pageSize: 100,
-      })
-
-      items.value = response.items
+      items.value = await usersApi.listAll()
       status.value = 'idle'
     } catch (e) {
       status.value = 'error'
