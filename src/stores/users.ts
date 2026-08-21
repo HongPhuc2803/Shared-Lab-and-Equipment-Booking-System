@@ -1,7 +1,11 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { usersApi } from '@/features/users/users.api'
-import type { CreateUserInput, UpdateUserInput, User } from '@/features/users/users.types'
+import type {
+  CreateUserInput,
+  UpdateUserInput,
+  User,
+} from '@/features/users/users.types'
 
 export const useUsersStore = defineStore('users', () => {
   const items = ref<User[]>([])
@@ -12,49 +16,69 @@ export const useUsersStore = defineStore('users', () => {
 
   const filtered = computed(() => {
     const q = search.value.trim().toLowerCase()
+
     if (!q) return items.value
+
     return items.value.filter((u) =>
-      [u.name, u.username, u.email].some((v) => v.toLowerCase().includes(q)),
+      [u.fullName, u.email, u.role, u.status].some((v) =>
+        v.toLowerCase().includes(q),
+      ),
     )
   })
 
   async function fetchAll() {
     status.value = 'loading'
     error.value = null
+
     try {
-      items.value = await usersApi.list()
+      items.value = await usersApi.listAll()
       status.value = 'idle'
     } catch (e) {
       status.value = 'error'
-      error.value = e instanceof Error ? e.message : 'error'
+      error.value = e instanceof Error ? e.message : 'Không thể tải danh sách người dùng.'
     }
   }
 
   async function create(input: CreateUserInput) {
     mutating.value = true
+
     try {
       const created = await usersApi.create(input)
-      // jsonplaceholder returns id 11; ensure uniqueness for the demo list.
-      items.value.unshift({ ...created, id: created.id || Date.now() })
+      items.value.unshift(created)
+
+      return created
     } finally {
       mutating.value = false
     }
   }
 
-  async function update(id: number, input: UpdateUserInput) {
+  async function update(id: string, input: UpdateUserInput) {
     mutating.value = true
+
     try {
       const updated = await usersApi.update(id, input)
-      const idx = items.value.findIndex((u) => u.id === id)
-      if (idx !== -1) items.value[idx] = { ...items.value[idx]!, ...updated }
+
+      const index = items.value.findIndex((u) => u.id === id)
+
+      if (index !== -1) {
+        items.value[index] = updated
+      }
+
+      return updated
     } finally {
       mutating.value = false
     }
   }
 
-  async function remove(id: number) {
-    await usersApi.remove(id)
-    items.value = items.value.filter((u) => u.id !== id)
+  async function remove(id: string) {
+    mutating.value = true
+
+    try {
+      await usersApi.remove(id)
+      items.value = items.value.filter((u) => u.id !== id)
+    } finally {
+      mutating.value = false
+    }
   }
 
   return {
